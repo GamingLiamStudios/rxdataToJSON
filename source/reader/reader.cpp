@@ -20,6 +20,8 @@ std::any Reader::parse()
     int type = file->get();
     if (file->eof()) std::__throw_ios_failure("Unexpected EOF");
 
+    std::cout << "Type: " << (char) type << "\n";
+
     auto ios_failure = [](std::string err) {
         std::__throw_ios_failure(err.c_str());
     };

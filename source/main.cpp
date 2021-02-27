@@ -1,9 +1,10 @@
 #include <filesystem>
 #include <iostream>
 #include <string>
-
 #include <vector>
 #include <unordered_map>
+
+#include <zlib-ng.h>
 
 #include "reader/reader.h"
 
@@ -133,20 +134,70 @@ int main(int argc, const char *argv[])
 
     std::cout << "Parsing\n";
 
-    std::string j;
-    Reader      reader(file);
-    auto        parse = reader.parse();
-
-    std::cout << "Converting to JSON\n";
-    any_to_json(parse, j);
-    std::cout << "Converted!\n";
-
-    file.close();
+    std::string   j;
     std::ofstream outfile;
+    Reader        reader(file);
+    auto          parse = reader.parse();
+    file.close();
 
-    outfile.open(std::string(argv[1]) + ".json");
-    outfile.write(j.data(), j.size());
-    outfile.close();
+    if (parse.type() == typeid(std::vector<std::any>))
+    {
+        std::cout << "Detected Scripts.rxdata. Extracting Scripts.\n";
+        std::filesystem::remove_all("./Scripts");
+        std::filesystem::create_directory("./Scripts");
+
+        auto &array = std::any_cast<std::vector<std::any> &>(parse);
+
+        std::string deflate_buffer;
+        deflate_buffer.resize(0x1000);
+        size_t deflate_len;
+        i32    zng_error = Z_OK;
+
+        for (auto any : array)
+        {
+            if (any.type() != typeid(std::vector<std::any>))
+                std::__throw_invalid_argument("Script is not Valid!");
+
+            auto &script = std::any_cast<std::vector<std::any> &>(any);
+            if (script[1].type() != typeid(std::string) || script[2].type() != typeid(std::string))
+                std::__throw_invalid_argument("Script is not Valid!");
+
+            outfile.open(
+              "./Scripts/" + std::any_cast<std::string &>(script[1]) +
+                ".rb",    // Guessing scripts are normal Ruby Scripts
+              (std::ios_base::openmode)(std::ios::binary | std::ios::beg));
+
+            auto &script_data = std::any_cast<std::string &>(script[2]);
+
+            while (true)
+            {
+                deflate_len = deflate_buffer.size();
+                zng_error   = zng_uncompress(
+                  (u8 *) deflate_buffer.data(),
+                  &deflate_len,
+                  (u8 *) script_data.data(),
+                  script_data.size());
+
+                if (zng_error != Z_BUF_ERROR) break;
+
+                deflate_buffer.resize(deflate_buffer.size() * 2);
+            }
+
+            outfile.write(deflate_buffer.data(), deflate_len);
+            outfile.close();
+            std::cout << "Extracted Script '" << std::any_cast<std::string &>(script[1]) << "'\n";
+        }
+    }
+    else
+    {
+        std::cout << "Converting to JSON\n";
+        any_to_json(parse, j);
+        std::cout << "Converted!\n";
+
+        outfile.open(std::string(argv[1]) + ".json");
+        outfile.write(j.data(), j.size());
+        outfile.close();
+    }
 
     return 0;
 }
