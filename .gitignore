@@ -1,0 +1,13 @@
+# IDE
+.vs/
+.vscode/
+.idea/
+
+# Build
+[Bb]uild/
+[Oo]ut/
+cmake-build-debug/
+cmake-build-release/
+
+# CMake
+CMakeSettings.json
