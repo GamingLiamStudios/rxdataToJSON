@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 #include <unordered_map>
+#include <cstring>
 
 #include <zlib-ng.h>
 
@@ -140,7 +141,9 @@ int main(int argc, const char *argv[])
     auto          parse = reader.parse();
     file.close();
 
-    if (parse.type() == typeid(std::vector<std::any>))
+    if (
+      std::string_view(argv[1] + (strlen(argv[1]) - 14), 14).compare("Scripts.rxdata") == 0 ||
+      std::string_view(argv[1] + (strlen(argv[1]) - 15), 15).compare("xScripts.rxdata") == 0)
     {
         std::cout << "Detected Scripts.rxdata. Extracting Scripts.\n";
         std::filesystem::remove_all("./Scripts");
@@ -192,12 +195,12 @@ int main(int argc, const char *argv[])
     {
         std::cout << "Converting to JSON\n";
         any_to_json(parse, j);
-        std::cout << "Converted!\n";
 
         outfile.open(std::string(argv[1]) + ".json");
         outfile.write(j.data(), j.size());
         outfile.close();
     }
 
+    std::cout << "Done!\n";
     return 0;
 }
